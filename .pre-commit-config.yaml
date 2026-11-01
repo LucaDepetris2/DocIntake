@@ -1,0 +1,35 @@
+# Install the git hook once with:  uv run --project backend pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Ruff and mypy run from the project's own virtualenv (local hooks), so the
+  # versions always match uv.lock and CI instead of drifting separately.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --project backend ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project backend ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: uv run --project backend mypy --config-file backend/pyproject.toml backend/app backend/tests
+        language: system
+        types: [python]
+        pass_filenames: false

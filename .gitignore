@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Generated synthetic documents
+scripts/output/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
