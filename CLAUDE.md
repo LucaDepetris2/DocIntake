@@ -126,11 +126,11 @@ docintake/
 
 ### Semana 4 — Producción
 - [x] 4.1 Auth JWT + aislamiento multi-tenant
-- [ ] 4.2 Logs estructurados con correlation_id
-- [ ] 4.3 Métricas Prometheus + dashboard Grafana
-- [ ] 4.4 Benchmark: throughput con 1 vs N workers
-- [ ] 4.5 README, diagrama de arquitectura, 2-3 ADRs
-- [ ] 4.6 Deploy + video demo de 2 minutos
+- [x] 4.2 Logs estructurados con correlation_id
+- [x] 4.3 Métricas Prometheus + dashboard Grafana
+- [x] 4.4 Benchmark: throughput con 1 vs N workers
+- [x] 4.5 README, diagrama de arquitectura, 2-3 ADRs
+- [x] 4.6 Deploy + video demo de 2 minutos (compose de prod verificado + guion; falta deploy real y grabar el video)
 
 ### Extras (si sobra tiempo)
 - [ ] Cronología médica con cita a la página de origen
@@ -144,7 +144,7 @@ Al terminar cada semana, ayudame a repasar (en inglés):
 - Los trade-offs que elegimos y sus alternativas.
 
 ## Estado actual
-- **Paso actual:** 4.2 (logs estructurados). Semanas 1-3 y auth JWT (4.1) completas (114 tests backend + frontend React servido por nginx en :8080). Stack Docker verificado end-to-end: 139 docs → 125 filed (100% en el caso correcto), OCR en contenedor y DLQ funcionando.
+- **Paso actual:** roadmap completo. Pendiente de Luca: commits, push (CI en GitHub), deploy real y video. (127 tests backend + frontend React servido por nginx en :8080). Stack Docker verificado end-to-end: 139 docs → 125 filed (100% en el caso correcto), OCR en contenedor y DLQ funcionando.
 - **Decisiones tomadas:**
   - App factory (`create_app()`); dependencias (DB, storage, enqueuer) inyectadas con `Depends` y reemplazadas en tests.
   - SQLAlchemy **sync** (un solo modelo de sesión para API y Celery). Tipos portables (`Uuid`, JSON→JSONB) para tests unitarios en SQLite en memoria.
@@ -156,6 +156,7 @@ Al terminar cada semana, ayudame a repasar (en inglés):
   - Clasificador: TF-IDF + LogisticRegression con fallback a keywords; umbral 0.6 → `needs_review`.
   - Matching: nº de caso exacto = 1.0; si no, nombres (rapidfuzz) + contraparte + fecha; empate cercano → review. En corpus sintético: 88% auto con 100% precisión.
   - Reglas por estudio como JSON validado con Pydantic (placeholders permitidos, sin path traversal).
+  - Producción: réplicas de API (2) y workers (2) en vez de `uvicorn --workers` (métricas simples, Prometheus por DNS SD); solo nginx y Grafana publican puertos; `ENVIRONMENT=production` exige JWT_SECRET de ≥32 bytes.
   - Frontend sin librería de UI: cliente API único (token, errores, logout en 401), hooks `useApi`/`useAction`/`usePolling`, `DataTable` genérica; la cola de revisión es la bandeja con `?status=needs_review`. Proxy `/api` (Vite en dev, nginx en prod) → mismo origen, sin CORS.
   - `pyproject.toml` vive en `backend/` (monorepo: backend y frontend separados, cada uno con su tooling).
   - Python fijado a 3.12 (`.python-version`); uv lo descarga solo, aunque el sistema tenga 3.14.
@@ -164,7 +165,7 @@ Al terminar cada semana, ayudame a repasar (en inglés):
   - mypy en modo `strict` desde el inicio.
   - `.gitattributes` fuerza LF (desarrollo en Windows, CI/Docker en Linux).
 - **Pendientes / dudas:**
-  - `scripts/benchmark.py` listo; falta correrlo con 1 vs N workers (4.4).
+  - Benchmark (500 docs, concurrencia 2 por worker): 1 worker 14 docs/s, 2 → 24,7, 4 → 34,7. Con 4 el cuello pasa a la ingesta (1 proceso uvicorn): siguiente mejora sería escalar la API.
   - Las métricas del clasificador son optimistas: el corpus sintético sale de plantillas.
 - **Notas de aprendizaje:**
   - Un `UPDATE` Core con `synchronize_session=False` no refresca los objetos ya cargados en la sesión: usar `populate_existing=True` al releer.
@@ -172,3 +173,4 @@ Al terminar cada semana, ayudame a repasar (en inglés):
   - Celery en modo eager re-lanza la excepción de una chain al llamador; un worker real hace reject → DLQ.
   - Celery solo declara las colas que el worker consume: la DLQ hay que declararla aparte (señal `worker_ready`), si no RabbitMQ descarta los mensajes muertos sin avisar. Lo detectó la prueba con infraestructura real, no los tests unitarios.
   - Bug de scoring encontrado por el benchmark: más evidencia (fecha) bajaba el puntaje del matching. Regla: la evidencia extra nunca debe restar (test de regresión agregado).
+  - `correlation_id` es una propiedad estándar de AMQP que Celery llena con el task id: un header propio con ese nombre queda tapado sin error. Por eso el header es `x_correlation_id`. Lo detectó la verificación en el stack real.
