@@ -21,6 +21,7 @@ from app.db.base import Base
 from app.db.models import Firm, User
 from app.db.session import get_db
 from app.main import create_app
+from app.observability.metrics import register_document_collector
 from app.storage import LocalStorage, get_storage
 
 
@@ -82,6 +83,7 @@ def client(
             yield session
 
     app.dependency_overrides[get_db] = _db
+    register_document_collector(session_factory)  # /metrics reads the test DB too
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_storage] = lambda: storage
     app.dependency_overrides[get_enqueuer] = lambda: enqueued.append

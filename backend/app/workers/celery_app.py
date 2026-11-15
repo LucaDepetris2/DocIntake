@@ -1,10 +1,26 @@
 """Celery application: broker, queues (with dead-lettering) and reliability settings."""
 
+import os
+
 from celery import Celery
-from celery.signals import worker_ready
+from celery.signals import (
+    before_task_publish,
+    setup_logging,
+    task_prerun,
+    worker_init,
+    worker_process_shutdown,
+    worker_ready,
+)
 from kombu.entity import Exchange, Queue
 
 from app.config import get_settings
+from app.observability.correlation import bind_from_task_headers, inject_into_task_headers
+from app.observability.logging import configure_logging
+from app.observability.metrics import (
+    mark_child_dead,
+    reset_multiprocess_dir,
+    serve_worker_metrics,
+)
 
 settings = get_settings()
 
@@ -64,3 +80,33 @@ def declare_dead_letter_queue(**_: object) -> None:
     """
     with celery_app.connection_for_write() as conn:
         dead_letter_queue.bind(conn).declare()
+
+
+@setup_logging.connect
+def _configure_worker_logging(**_: object) -> None:
+    """Connecting this signal stops Celery from installing its own log handlers."""
+    configure_logging(settings.log_level, settings.log_json)
+
+
+# Correlation id: API -> message headers -> worker context -> next task's headers...
+before_task_publish.connect(inject_into_task_headers, weak=False)
+task_prerun.connect(bind_from_task_headers, weak=False)
+
+
+# --- Prometheus (multiprocess: see app.observability.metrics) ------------------------
+
+
+@worker_init.connect
+def _reset_metrics(**_: object) -> None:
+    reset_multiprocess_dir()  # parent process, before the children are forked
+
+
+@worker_ready.connect
+def _serve_metrics(**_: object) -> None:
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        serve_worker_metrics(settings.worker_metrics_port)
+
+
+@worker_process_shutdown.connect
+def _child_exit(pid: int | None = None, **_: object) -> None:
+    mark_child_dead(pid or os.getpid())

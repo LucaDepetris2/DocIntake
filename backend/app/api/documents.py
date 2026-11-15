@@ -1,6 +1,7 @@
 import uuid
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 
@@ -11,6 +12,7 @@ from app.db.models import Document
 from app.domain.states import DocumentStatus
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+log = structlog.get_logger("app.documents")
 
 PDF_MAGIC = b"%PDF-"
 ALLOWED_CONTENT_TYPES = {"application/pdf", "application/octet-stream"}
@@ -72,6 +74,7 @@ async def upload_document(
 
     # Publish only AFTER commit: a worker must never receive an id it cannot find yet.
     enqueue(document.id)
+    log.info("document received", document_id=str(document.id), size_bytes=len(data))
     return UploadResult(document=DocumentSummary.model_validate(document), duplicate=False)
 
 

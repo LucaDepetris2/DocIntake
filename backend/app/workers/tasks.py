@@ -7,19 +7,24 @@ Error policy:
     no document content) and the message is rejected into the dead-letter queue.
 """
 
+import time
 import uuid
 from collections.abc import Callable
 from typing import Any
 
+import structlog
 from celery import Task, chain
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.session import get_sessionmaker
+from app.observability.metrics import observe_stage
 from app.processing.extraction import ExtractionError
 from app.workers import stages
 from app.workers.celery_app import celery_app
+
+log = structlog.get_logger("app.pipeline")
 
 TRANSIENT_ERRORS: tuple[type[Exception], ...] = (
     OperationalError,
@@ -57,16 +62,43 @@ class PipelineTask(Task):
         einfo: Any,
     ) -> None:
         document_id = uuid.UUID(str(args[0] if args else kwargs["document_id"]))
+        error = sanitize_error(self.name, exc)
+        # Sanitized message only: library exception text may echo document content.
+        log.error("stage failed", error=error, retries=self.request.retries)
+        observe_stage(self.name, "failed")
         with get_sessionmaker()() as session:
-            stages.mark_failed(session, document_id, sanitize_error(self.name, exc))
+            stages.mark_failed(session, document_id, error)
+
+    def on_retry(
+        self,
+        exc: BaseException,
+        task_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        einfo: Any,
+    ) -> None:
+        log.warning(
+            "stage retry", error=sanitize_error(self.name, exc), retries=self.request.retries
+        )
+        observe_stage(self.name, "retry")
 
 
 StageFn = Callable[[Session, uuid.UUID, stages.StageDeps], stages.StageOutcome]
 
 
 def _run(task: Task, stage: StageFn, document_id: str) -> str:
+    structlog.contextvars.bind_contextvars(document_id=document_id, stage=task.name)
+    started = time.perf_counter()
     with get_sessionmaker()() as session:
         outcome = stage(session, uuid.UUID(document_id), stages.get_stage_deps())
+    seconds = time.perf_counter() - started
+    observe_stage(task.name, outcome.value, seconds)
+    log.info(
+        "stage finished",
+        outcome=outcome.value,
+        attempt=task.request.retries + 1,
+        duration_ms=round(seconds * 1000, 1),
+    )
     if outcome is not stages.StageOutcome.ADVANCED:
         # Needs review or already processed: stop the rest of the chain.
         task.request.chain = None
