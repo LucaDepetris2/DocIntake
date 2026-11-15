@@ -4,15 +4,41 @@ version = "0.1.0"
 description = "Automated intake, classification and filing of legal/medical documents."
 readme = "../README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "alembic>=1.20.1",
+    "bcrypt>=5.0.0",
+    "celery>=5.7.0",
+    "fastapi>=0.162.0",
+    "flower>=2.2.0",
+    "joblib>=1.6.0",
+    "pdfplumber>=0.11.10",
+    "pillow>=13.0.0",
+    "psycopg[binary]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "pydantic[email]>=2.14.2",
+    "pyjwt>=2.15.1",
+    "pytesseract>=0.3.13",
+    "python-dateutil>=2.9.0.post0",
+    "python-multipart>=0.0.33",
+    "rapidfuzz>=3.14.6",
+    "scikit-learn>=1.9.1",
+    "sqlalchemy>=2.1.8",
+    "uvicorn[standard]>=0.54.0",
+]
 
 [dependency-groups]
 dev = [
+    "faker>=40.54.0",
+    "httpx>=0.28.1",
     "mypy>=1.13",
+    "pgserver>=0.1.4",
     "pre-commit>=4.0",
     "pytest>=8.3",
     "pytest-cov>=6.0",
+    "reportlab>=5.1.0",
     "ruff>=0.8",
+    "testcontainers[postgres]>=4.15.0",
+    "types-python-dateutil>=2.9.0.20261104",
 ]
 
 # ---------------------------------------------------------------------------
@@ -38,7 +64,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]  # assert is how pytest works
+"tests/**" = ["S101", "S105", "S106", "S311"]  # assert is how pytest works; non-crypto randomness is fine
+"alembic/versions/**" = ["E501"]
 
 # ---------------------------------------------------------------------------
 # Mypy
@@ -56,7 +83,21 @@ pretty = true
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
+markers = ["integration: needs a real PostgreSQL (testcontainers or pgserver)"]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
 
 [tool.coverage.run]
 source = ["app"]
 branch = true
+
+[[tool.mypy.overrides]]
+# Third-party libraries without type information.
+module = ["docker", "docker.*", "pytesseract.*", "pytesseract", "reportlab.*", "joblib.*", "sklearn.*", "celery.*", "kombu.*", "testcontainers.*", "pgserver.*", "pdfplumber.*", "pdfminer.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Celery ships no type hints: its @task decorator is necessarily untyped.
+module = ["app.workers.tasks", "app.workers.celery_app"]
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
