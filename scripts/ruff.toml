@@ -1,0 +1,5 @@
+# Same rules as the backend; scripts only use randomness for synthetic data.
+extend = "../backend/pyproject.toml"
+
+[lint]
+extend-ignore = ["S311"]

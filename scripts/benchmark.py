@@ -21,6 +21,7 @@ import os
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -62,9 +63,7 @@ def main() -> None:
         raise SystemExit("Export SEED_PASSWORD (same value used by the seed)")
 
     manifest = json.loads((args.data / "manifest.json").read_text(encoding="utf-8"))
-    matters = json.loads((args.data / "matters.json").read_text(encoding="utf-8"))[
-        "matters"
-    ]
+    matters = json.loads((args.data / "matters.json").read_text(encoding="utf-8"))["matters"]
 
     with httpx.Client(base_url=args.api, timeout=60) as client:
         headers_by_firm = {
@@ -110,22 +109,24 @@ def main() -> None:
 
     statuses = Counter(d["status"] for d in results.values())
     by_id = {r["document"]["id"]: e for e, r in uploads}
-    type_ok = sum(
-        1 for i, d in results.items() if d["doc_type"] == by_id[i]["doc_type"]
-    )
+    type_ok = sum(1 for i, d in results.items() if d["doc_type"] == by_id[i]["doc_type"])
     filed = [(i, d) for i, d in results.items() if d["status"] == "filed"]
     matter_ok = sum(
-        1
-        for i, d in filed
-        if case_by_matter_id.get(d["matter_id"]) == by_id[i]["case_number"]
+        1 for i, d in filed if case_by_matter_id.get(d["matter_id"]) == by_id[i]["case_number"]
     )
 
-    print(
-        f"documents:          {len(manifest)} ({duplicates} duplicates skipped by dedup)"
-    )
+    print(f"documents:          {len(manifest)} ({duplicates} duplicates skipped by dedup)")
     print(f"upload time:        {upload_seconds:.1f}s")
     print(f"end-to-end time:    {total_seconds:.1f}s")
-    print(f"throughput:         {len(results) / total_seconds:.2f} docs/s")
+    print(f"throughput:         {len(results) / total_seconds:.2f} docs/s (client view)")
+    # Server-side view: first upload -> last document finished, from DB timestamps. This
+    # excludes the client's polling granularity, so it is the number to compare.
+    # Duplicates are excluded: dedup returns the *old* document, with its old timestamps.
+    fresh = [results[r["document"]["id"]] for _, r in uploads if not r["duplicate"]]
+    first = min(datetime.fromisoformat(d["created_at"]) for d in fresh)
+    last = max(datetime.fromisoformat(d["updated_at"]) for d in fresh)
+    server_seconds = (last - first).total_seconds()
+    print(f"server throughput:  {len(fresh) / server_seconds:.2f} docs/s ({server_seconds:.1f}s)")
     print(f"final statuses:     {dict(statuses)}  (still pending: {len(pending)})")
     print(f"doc type accuracy:  {type_ok}/{len(results)}")
     print(f"auto-filed correct: {matter_ok}/{len(filed)} matched to the right case")

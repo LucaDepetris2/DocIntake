@@ -124,9 +124,7 @@ def make_matters(fake: Faker, rng: random.Random, per_firm: int) -> list[Matter]
             incident = fake.date_between(start_date="-3y", end_date="-6m")
             year = incident.year % 100
             if rng.random() < 0.5:
-                case_number = (
-                    f"{rng.randint(1, 9)}:{year:02d}-cv-{rng.randint(1000, 99999):05d}"
-                )
+                case_number = f"{rng.randint(1, 9)}:{year:02d}-cv-{rng.randint(1000, 99999):05d}"
             else:
                 case_number = f"{incident.year}-L-{rng.randint(100000, 999999)}"
             matters.append(
@@ -137,9 +135,7 @@ def make_matters(fake: Faker, rng: random.Random, per_firm: int) -> list[Matter]
                     client_name=client,
                     defendant=defendant,
                     incident_date=incident.isoformat(),
-                    opened_at=(
-                        incident + timedelta(days=rng.randint(5, 60))
-                    ).isoformat(),
+                    opened_at=(incident + timedelta(days=rng.randint(5, 60))).isoformat(),
                 )
             )
     return matters
@@ -152,25 +148,17 @@ def make_matters(fake: Faker, rng: random.Random, per_firm: int) -> list[Matter]
 
 def _ref_line(m: Matter, with_case: bool, rng: random.Random) -> str:
     if not with_case:
-        return (
-            f"Re: {m.title}"
-            if rng.random() < 0.5
-            else f"Patient/Client: {m.client_name}"
-        )
+        return f"Re: {m.title}" if rng.random() < 0.5 else f"Patient/Client: {m.client_name}"
     return f"Re: {m.title}, Case No. {m.case_number}"
 
 
-def medical_record(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def medical_record(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     provider = rng.choice(PROVIDERS)
     visit = date.fromisoformat(m.incident_date) + timedelta(days=rng.randint(0, 120))
     code, dx = rng.choice(DIAGNOSES)
     lines = [
         provider.upper(),
-        rng.choice(
-            ["PROGRESS NOTE", "CLINICAL NOTE", "OFFICE VISIT NOTE", "DISCHARGE SUMMARY"]
-        ),
+        rng.choice(["PROGRESS NOTE", "CLINICAL NOTE", "OFFICE VISIT NOTE", "DISCHARGE SUMMARY"]),
         f"Patient: {client}    DOB: {_fmt(fake.date_of_birth(minimum_age=20, maximum_age=75))}",
         f"Date of Service: {_fmt(visit)}",
         f"Attending Physician: Dr. {fake.name()}, MD",
@@ -204,17 +192,14 @@ def medical_record(
     return lines
 
 
-def medical_bill(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def medical_bill(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     provider = rng.choice(PROVIDERS)
     start = date.fromisoformat(m.incident_date) + timedelta(days=rng.randint(0, 60))
     lines = [
         provider.upper(),
-        rng.choice(
-            ["ITEMIZED STATEMENT", "PATIENT BILLING STATEMENT", "STATEMENT OF CHARGES"]
-        ),
-        f"Account #: {rng.randint(10_000_000, 99_999_999)}    Statement Date: {_fmt(start + timedelta(days=45))}",
+        rng.choice(["ITEMIZED STATEMENT", "PATIENT BILLING STATEMENT", "STATEMENT OF CHARGES"]),
+        f"Account #: {rng.randint(10_000_000, 99_999_999)}    "
+        f"Statement Date: {_fmt(start + timedelta(days=45))}",
         f"Patient: {client}",
         f"Guarantor: {client}    Insurance: {rng.choice(INSURERS)}",
         "",
@@ -226,9 +211,7 @@ def medical_bill(
         amount = round(rng.uniform(85, 4200), 2)
         total += amount
         dos = start + timedelta(days=i * rng.randint(2, 9))
-        lines.append(
-            f"{dos.strftime('%m/%d/%Y')}        {code}  {desc[:42]:<42}  ${amount:,.2f}"
-        )
+        lines.append(f"{dos.strftime('%m/%d/%Y')}        {code}  {desc[:42]:<42}  ${amount:,.2f}")
     paid = round(total * rng.uniform(0, 0.4), 2)
     lines += [
         "",
@@ -242,9 +225,7 @@ def medical_bill(
     return lines
 
 
-def pleading(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def pleading(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     title = rng.choice(
         [
             "COMPLAINT FOR DAMAGES",
@@ -280,9 +261,7 @@ def pleading(
     ]
 
 
-def correspondence(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def correspondence(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     sent = date.fromisoformat(m.opened_at) + timedelta(days=rng.randint(5, 200))
     return [
         rng.choice(INSURERS + PROVIDERS).upper(),
@@ -313,9 +292,7 @@ def correspondence(
         "",
         "Sincerely,",
         fake.name(),
-        rng.choice(
-            ["Claims Adjuster", "Senior Claims Specialist", "Records Custodian"]
-        ),
+        rng.choice(["Claims Adjuster", "Senior Claims Specialist", "Records Custodian"]),
     ]
 
 
@@ -351,17 +328,13 @@ def discovery_request(
     ]
 
 
-def lien_notice(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def lien_notice(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     holder = rng.choice(LIENHOLDERS + PROVIDERS)
     amount = round(rng.uniform(1500, 85000), 2)
     sent = date.fromisoformat(m.opened_at) + timedelta(days=rng.randint(30, 400))
     return [
         holder.upper(),
-        rng.choice(
-            ["NOTICE OF LIEN", "NOTICE OF MEDICAL LIEN", "CONDITIONAL PAYMENT NOTICE"]
-        ),
+        rng.choice(["NOTICE OF LIEN", "NOTICE OF MEDICAL LIEN", "CONDITIONAL PAYMENT NOTICE"]),
         _fmt(sent),
         "",
         _ref_line(m, wc, rng),
@@ -379,9 +352,7 @@ def lien_notice(
     ]
 
 
-def other(
-    fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool
-) -> list[str]:
+def other(fake: Faker, rng: random.Random, m: Matter, client: str, wc: bool) -> list[str]:
     return rng.choice(
         [
             [
@@ -428,9 +399,7 @@ TEMPLATES = {
 
 def _render_text_pdf(lines: list[str]) -> bytes:
     buf = io.BytesIO()
-    c = canvas.Canvas(
-        buf, pagesize=LETTER, invariant=True
-    )  # invariant -> reproducible bytes
+    c = canvas.Canvas(buf, pagesize=LETTER, invariant=True)  # invariant -> reproducible bytes
     _width, height = LETTER
     y = height - 60
     c.setFont("Helvetica", 10)
@@ -471,12 +440,19 @@ def _render_image_pdf(lines: list[str]) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-def generate(out_dir: Path, n: int, seed: int, matters_per_firm: int) -> dict[str, Any]:
+def generate(
+    out_dir: Path, n: int, seed: int, matters_per_firm: int, doc_seed: int | None = None
+) -> dict[str, Any]:
     rng = random.Random(seed)
     fake = Faker("en_US")
     Faker.seed(seed)
 
+    # Matters always come from `seed` (they must match what's loaded in the DB);
+    # `doc_seed` produces a different batch of documents for the same matters.
     matters = make_matters(fake, rng, matters_per_firm)
+    if doc_seed is not None and doc_seed != seed:
+        rng = random.Random(doc_seed)
+        Faker.seed(doc_seed)
     pdf_dir = out_dir / "pdf"
     pdf_dir.mkdir(parents=True, exist_ok=True)
 
@@ -507,9 +483,7 @@ def generate(out_dir: Path, n: int, seed: int, matters_per_firm: int) -> dict[st
         )
 
     matters_doc = {"firms": list(FIRMS), "matters": [asdict(m) for m in matters]}
-    (out_dir / "matters.json").write_text(
-        json.dumps(matters_doc, indent=2), encoding="utf-8"
-    )
+    (out_dir / "matters.json").write_text(json.dumps(matters_doc, indent=2), encoding="utf-8")
     (out_dir / "manifest.json").write_text(
         json.dumps([asdict(e) for e in manifest], indent=2), encoding="utf-8"
     )
@@ -524,8 +498,11 @@ def main() -> None:
     parser.add_argument("--n", type=int, default=140, help="number of documents")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--matters-per-firm", type=int, default=12)
+    parser.add_argument(
+        "--doc-seed", type=int, default=None, help="new documents for the same matters"
+    )
     args = parser.parse_args()
-    print(json.dumps(generate(args.out, args.n, args.seed, args.matters_per_firm)))
+    print(json.dumps(generate(args.out, args.n, args.seed, args.matters_per_firm, args.doc_seed)))
 
 
 if __name__ == "__main__":
