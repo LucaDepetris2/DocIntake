@@ -45,10 +45,28 @@ jobs:
           name: coverage
           path: backend/coverage.xml
 
-  docker:
+  frontend:
     runs-on: ubuntu-latest
-    needs: backend
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: docker build -t docintake-backend ./backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Type check and build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -t docintake-backend ./backend
+          docker build -t docintake-frontend ./frontend
