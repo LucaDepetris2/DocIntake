@@ -122,7 +122,7 @@ docintake/
 - [x] 3.3 Matching de caso con rapidfuzz
 - [x] 3.4 Reglas configurables por estudio (naming / routing)
 - [x] 3.5 Cola `needs_review` + endpoints de revisión humana
-- [ ] 3.6 Frontend React: bandeja, detalle, revisión
+- [x] 3.6 Frontend React: bandeja, detalle, revisión
 
 ### Semana 4 — Producción
 - [x] 4.1 Auth JWT + aislamiento multi-tenant
@@ -144,7 +144,7 @@ Al terminar cada semana, ayudame a repasar (en inglés):
 - Los trade-offs que elegimos y sus alternativas.
 
 ## Estado actual
-- **Paso actual:** 3.6 (frontend). Semanas 1-2, lógica de 3.1-3.5 y auth JWT (4.1) completas (114 tests). Stack Docker verificado end-to-end: 139 docs → 125 filed (100% en el caso correcto), OCR en contenedor y DLQ funcionando.
+- **Paso actual:** 4.2 (logs estructurados). Semanas 1-3 y auth JWT (4.1) completas (114 tests backend + frontend React servido por nginx en :8080). Stack Docker verificado end-to-end: 139 docs → 125 filed (100% en el caso correcto), OCR en contenedor y DLQ funcionando.
 - **Decisiones tomadas:**
   - App factory (`create_app()`); dependencias (DB, storage, enqueuer) inyectadas con `Depends` y reemplazadas en tests.
   - SQLAlchemy **sync** (un solo modelo de sesión para API y Celery). Tipos portables (`Uuid`, JSON→JSONB) para tests unitarios en SQLite en memoria.
@@ -156,6 +156,7 @@ Al terminar cada semana, ayudame a repasar (en inglés):
   - Clasificador: TF-IDF + LogisticRegression con fallback a keywords; umbral 0.6 → `needs_review`.
   - Matching: nº de caso exacto = 1.0; si no, nombres (rapidfuzz) + contraparte + fecha; empate cercano → review. En corpus sintético: 88% auto con 100% precisión.
   - Reglas por estudio como JSON validado con Pydantic (placeholders permitidos, sin path traversal).
+  - Frontend sin librería de UI: cliente API único (token, errores, logout en 401), hooks `useApi`/`useAction`/`usePolling`, `DataTable` genérica; la cola de revisión es la bandeja con `?status=needs_review`. Proxy `/api` (Vite en dev, nginx en prod) → mismo origen, sin CORS.
   - `pyproject.toml` vive en `backend/` (monorepo: backend y frontend separados, cada uno con su tooling).
   - Python fijado a 3.12 (`.python-version`); uv lo descarga solo, aunque el sistema tenga 3.14.
   - Backend como proyecto "virtual" de uv (no se empaqueta); pytest importa `app` vía `pythonpath = ["."]`.
