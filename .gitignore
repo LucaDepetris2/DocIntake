@@ -37,3 +37,6 @@ backend/storage/
 
 # Trained models are rebuilt from synthetic data
 backend/models/*.joblib
+
+# TypeScript incremental build cache
+*.tsbuildinfo
