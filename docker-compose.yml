@@ -1,6 +1,6 @@
 # Local development stack.
 #   cp .env.example .env
-#   docker compose up --build                      # postgres, rabbitmq, api, worker, flower
+#   docker compose up --build                      # postgres, rabbitmq, api, worker, flower, frontend
 #   docker compose --profile demo run --rm seed    # load synthetic firms/matters
 name: docintake
 
@@ -76,6 +76,12 @@ services:
     ports: ["5555:5555"]
     depends_on:
       rabbitmq: { condition: service_healthy }
+
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on:
+      api: { condition: service_healthy }
 
   seed:
     <<: *backend
