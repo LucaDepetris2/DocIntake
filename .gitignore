@@ -25,6 +25,7 @@ frontend/dist/
 
 # Generated synthetic documents
 scripts/output/
+scripts/output-*/
 
 # OS / editors
 .DS_Store

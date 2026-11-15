@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: docintake
+    folder: DocIntake
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
