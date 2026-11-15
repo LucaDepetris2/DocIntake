@@ -99,33 +99,33 @@ docintake/
 ## Roadmap (marcar con [x] al completar)
 
 ### Semana 1 — Base
-- [ ] 1.1 Repo, estructura, `uv`, ruff, mypy, pre-commit
-- [ ] 1.2 FastAPI hello world + `/health` + primer test
-- [ ] 1.3 Docker + docker-compose (api + postgres)
-- [ ] 1.4 SQLAlchemy + Alembic: modelos `Firm`, `Matter`, `Document`
-- [ ] 1.5 Endpoint de upload de PDF + listado de documentos
-- [ ] 1.6 GitHub Actions: lint + tests
-- [ ] 1.7 Script de generación de PDFs sintéticos
+- [x] 1.1 Repo, estructura, `uv`, ruff, mypy, pre-commit
+- [x] 1.2 FastAPI hello world + `/health` + primer test
+- [x] 1.3 Docker + docker-compose (api + postgres)
+- [x] 1.4 SQLAlchemy + Alembic: modelos `Firm`, `Matter`, `Document`
+- [x] 1.5 Endpoint de upload de PDF + listado de documentos
+- [x] 1.6 GitHub Actions: lint + tests
+- [x] 1.7 Script de generación de PDFs sintéticos
 
 ### Semana 2 — Procesamiento asíncrono
-- [ ] 2.1 RabbitMQ + Celery en docker-compose, primera tarea
-- [ ] 2.2 Tarea de extracción de texto (OCR) + cambio de estado
-- [ ] 2.3 Encadenar etapas del pipeline (chain)
-- [ ] 2.4 Reintentos, backoff, dead-letter queue, estado `failed`
-- [ ] 2.5 Idempotencia
-- [ ] 2.6 Tests de integración con testcontainers
-- [ ] 2.7 Flower para monitorear workers
+- [x] 2.1 RabbitMQ + Celery en docker-compose, primera tarea
+- [x] 2.2 Tarea de extracción de texto (OCR) + cambio de estado
+- [x] 2.3 Encadenar etapas del pipeline (chain)
+- [x] 2.4 Reintentos, backoff, dead-letter queue, estado `failed`
+- [x] 2.5 Idempotencia
+- [x] 2.6 Tests de integración con testcontainers
+- [x] 2.7 Flower para monitorear workers
 
 ### Semana 3 — Inteligencia y producto
-- [ ] 3.1 Clasificador (TDD) con puntaje de confianza
-- [ ] 3.2 Extracción de entidades (fechas, partes, proveedor, nº de caso)
-- [ ] 3.3 Matching de caso con rapidfuzz
-- [ ] 3.4 Reglas configurables por estudio (naming / routing)
-- [ ] 3.5 Cola `needs_review` + endpoints de revisión humana
+- [x] 3.1 Clasificador (TDD) con puntaje de confianza
+- [x] 3.2 Extracción de entidades (fechas, partes, proveedor, nº de caso)
+- [x] 3.3 Matching de caso con rapidfuzz
+- [x] 3.4 Reglas configurables por estudio (naming / routing)
+- [x] 3.5 Cola `needs_review` + endpoints de revisión humana
 - [ ] 3.6 Frontend React: bandeja, detalle, revisión
 
 ### Semana 4 — Producción
-- [ ] 4.1 Auth JWT + aislamiento multi-tenant
+- [x] 4.1 Auth JWT + aislamiento multi-tenant
 - [ ] 4.2 Logs estructurados con correlation_id
 - [ ] 4.3 Métricas Prometheus + dashboard Grafana
 - [ ] 4.4 Benchmark: throughput con 1 vs N workers
@@ -144,13 +144,30 @@ Al terminar cada semana, ayudame a repasar (en inglés):
 - Los trade-offs que elegimos y sus alternativas.
 
 ## Estado actual
-- **Paso actual:** 1.1 en curso. Archivos creados; falta instalar `uv`, correr `uv sync` y `pre-commit install` y hacer el primer commit.
+- **Paso actual:** 3.6 (frontend). Semanas 1-2, lógica de 3.1-3.5 y auth JWT (4.1) completas (114 tests). Stack Docker verificado end-to-end: 139 docs → 125 filed (100% en el caso correcto), OCR en contenedor y DLQ funcionando.
 - **Decisiones tomadas:**
+  - App factory (`create_app()`); dependencias (DB, storage, enqueuer) inyectadas con `Depends` y reemplazadas en tests.
+  - SQLAlchemy **sync** (un solo modelo de sesión para API y Celery). Tipos portables (`Uuid`, JSON→JSONB) para tests unitarios en SQLite en memoria.
+  - Migraciones: autogenerate como borrador + revisión manual (ENUMs de Postgres creados explícitamente). Servicio `migrate` one-shot en compose.
+  - Tests de integración: testcontainers si hay Docker (CI), `pgserver` (Postgres embebido) si no.
+  - Estado en Postgres, no en result backend de Celery; los mensajes solo llevan `document_id`.
+  - Idempotencia: upload dedup por `(firm_id, sha256)`; etapas con compare-and-set (`UPDATE ... WHERE status = expected`); `UNIQUE(document_id, kind)` en alertas.
+  - Fallos: retry con backoff+jitter solo para errores transitorios; fallo definitivo → `failed` + reject → DLQ (`task_acks_on_failure_or_timeout=False`). Errores sanitizados (sin contenido del documento).
+  - Clasificador: TF-IDF + LogisticRegression con fallback a keywords; umbral 0.6 → `needs_review`.
+  - Matching: nº de caso exacto = 1.0; si no, nombres (rapidfuzz) + contraparte + fecha; empate cercano → review. En corpus sintético: 88% auto con 100% precisión.
+  - Reglas por estudio como JSON validado con Pydantic (placeholders permitidos, sin path traversal).
   - `pyproject.toml` vive en `backend/` (monorepo: backend y frontend separados, cada uno con su tooling).
   - Python fijado a 3.12 (`.python-version`); uv lo descarga solo, aunque el sistema tenga 3.14.
   - Backend como proyecto "virtual" de uv (no se empaqueta); pytest importa `app` vía `pythonpath = ["."]`.
   - Ruff y mypy corren en pre-commit como hooks **locales** (`uv run`), así usan las mismas versiones que `uv.lock` y CI.
   - mypy en modo `strict` desde el inicio.
   - `.gitattributes` fuerza LF (desarrollo en Windows, CI/Docker en Linux).
-- **Pendientes / dudas:** —
-- **Notas de aprendizaje:** —
+- **Pendientes / dudas:**
+  - `scripts/benchmark.py` listo; falta correrlo con 1 vs N workers (4.4).
+  - Las métricas del clasificador son optimistas: el corpus sintético sale de plantillas.
+- **Notas de aprendizaje:**
+  - Un `UPDATE` Core con `synchronize_session=False` no refresca los objetos ya cargados en la sesión: usar `populate_existing=True` al releer.
+  - Pydantic envuelve los `ValueError` de validadores en `ValidationError` (→ 422 en FastAPI).
+  - Celery en modo eager re-lanza la excepción de una chain al llamador; un worker real hace reject → DLQ.
+  - Celery solo declara las colas que el worker consume: la DLQ hay que declararla aparte (señal `worker_ready`), si no RabbitMQ descarta los mensajes muertos sin avisar. Lo detectó la prueba con infraestructura real, no los tests unitarios.
+  - Bug de scoring encontrado por el benchmark: más evidencia (fecha) bajaba el puntaje del matching. Regla: la evidencia extra nunca debe restar (test de regresión agregado).
